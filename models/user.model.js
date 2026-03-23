@@ -7,7 +7,7 @@ const userScheam = new Schema(
         password: { type: String, required: true },
         verifyOtp: { type: String, default: ""},
         verifyOtpExpireAt: { type: Number, default: 0},
-        isVerifyUser: { type: Boolean, default: false},
+        isVerifiedUser: { type: Boolean, default: false},
         resetOtp: { type: String, default: ""},
         resetExpireAt: { type: Number, default: 0}
     }

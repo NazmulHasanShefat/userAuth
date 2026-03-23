@@ -14,7 +14,7 @@ dbConnect();
 
 app.use(express.json());
 app.use(cookieParser());
-app.use(cors({Credentials: true}));
+app.use(cors({credentials: true}));
 
 
 // api endpoints

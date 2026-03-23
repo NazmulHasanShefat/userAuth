@@ -42,9 +42,12 @@ export const regiter = async (req, res) => {
         const mailOptions = {
             from: process.env.SENDER_EMAIL,
             to: email,
-            subject: "wellcome to out website",
-            text: `wellcome to out website well all are happy to creater you a acount
-            your email is: ${ email }`,
+            subject: "wellcome to our userAuth",
+            text: `
+            <img src="https://cdn-icons-png.flaticon.com/512/17076/17076709.png" height="30" width="30"/>
+            <h1>wellcome to our website</h1>
+            wellcome to our website well all are happy to creater you a acount
+            your email is: ${email}`,
         }
         await transporter.sendMail(mailOptions);
 
@@ -132,5 +135,96 @@ export const logout = async (req, res) => {
             message: error.message
         })
         console.log(error)
+    }
+}
+
+// ========================================== SEND OTP =============================================
+export const sendVarifyOtp = async (req, res) => {
+    try {
+        const userId = req.userId; // ✅ req.body থেকে নয়
+        console.log("userId:", userId);
+        const user = await userModel.findById(userId)
+
+        if (user.isVerifiedUser) {
+            return res.json({ success: false, message: "acount alrady verified" })
+        }
+
+        const otp = String(Math.floor(100000 + Math.random() * 900000));
+        user.verifyOtp = otp;
+
+        user.verifyOtpExpireAt = Date.now() + 24 * 60 * 60 * 1000;
+
+        await user.save();
+
+        // send otp to user mailbox
+        const mailOptions = {
+            from: process.env.SENDER_EMAIL,
+            to: user.email,
+            subject: "Varification OTP",
+            text: `
+            <h1>Acount varification Otp</h1>
+            <h3>Your verification code is: ${otp}</h3>
+            <p>This code expires in 10 minutes. Do not share it with anyone.</p>
+            – [From userAuth app]
+            `
+        }
+
+        await transporter.sendMail(mailOptions);
+
+        res.json({ success: true, message: "verification email send successfully" });
+
+    } catch (error) {
+        return res.json({
+            success: false,
+            message: error.message
+        })
+    }
+}
+
+// ================================== WHEN USER PUT OTP VERIFY IT ==================================
+export const verifyEmail = async (req, res) => {
+    const { otp } = req.body;
+    const userId = req.userId;
+    if (!userId || !otp) {
+        return res.json({
+            success: false,
+            message: "missing details"
+        })
+    }
+    try {
+        const user = await userModel.findById(userId);
+        if (!user) {
+            return res.json({
+                success: false,
+                message: "user not found"
+            })
+        }
+        if (user.verifyOtp === "" || user.verifyOtp !== otp) {
+            return res.json({
+                success: false,
+                message: "invalid otp"
+            })
+        }
+        if(user.verifyOtpExpireAt < Date.now()){
+            return res.json({
+                success: false,
+                message: "otp expired"
+            })
+        }
+        user.isVerifiedUser = true;
+        user.verifyOtp = "";
+        user.verifyOtpExpireAt = 0;
+        await user.save();
+
+        res.json({
+            success: true,
+            message: "user verified successfully"
+        })
+
+    } catch (error) {
+        return res.json({
+            success: false,
+            message: error.message
+        })
     }
 }
