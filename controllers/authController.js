@@ -1,12 +1,13 @@
 import bcrypt from "bcryptjs";
 import userModel from "../models/user.model.js";
 import jwt from "jsonwebtoken";
+import transporter from "../config/nodeMailer.config.js";
 
 // ekhane regiter login logout verifyAcout and passord reset esob kaj kora hoy controller er moddhe
 export const regiter = async (req, res) => {
-    const { name, email, passord } = req.body;
+    const { name, email, password } = req.body;
 
-    if (!name || !email || !passord) {
+    if (!name || !email || !password) {
         return res.json({
             success: false,
             message: "missing details required!"
@@ -21,14 +22,14 @@ export const regiter = async (req, res) => {
                 message: "same user alrady exist"
             })
         }
-        const hashedPassword = await bcrypt.hash(passord, 10);
+        const hashedPassword = await bcrypt.hash(password, 10);
 
-        const user = new userModel({ name, email, passord: hashedPassword })
+        const user = new userModel({ name, email, password: hashedPassword })
         await user.save()
 
         // genarate user token
 
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRAT, { expireIn: "7d" });
+        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRAT, { expiresIn: "7d" });
 
         res.cookie("token", token, {
             httpOnly: true,
@@ -36,6 +37,16 @@ export const regiter = async (req, res) => {
             sameSite: process.env.NODE_ENV === "production" ? "node" : "strict",
             maxAge: 7 * 24 * 60 * 60 * 1000
         });
+
+        // send email
+        const mailOptions = {
+            from: process.env.SENDER_EMAIL,
+            to: email,
+            subject: "wellcome to out website",
+            text: `wellcome to out website well all are happy to creater you a acount
+            your email is: ${ email }`,
+        }
+        await transporter.sendMail(mailOptions);
 
         return res.json({
             success: true,
@@ -47,15 +58,16 @@ export const regiter = async (req, res) => {
             success: false,
             message: error.message
         })
+        console.log(error)
     }
 }
 
 
 // ========================================= USER LOGIN ============================================
 export const login = async (req, res) => {
-    const { email, passord } = req.body;
+    const { email, password } = req.body;
 
-    if (!email || !passord) {
+    if (!email || !password) {
         return res.json({
             success: false,
             message: "Name or Email is required"
@@ -69,7 +81,7 @@ export const login = async (req, res) => {
                 message: "invalid email"
             })
         }
-        const isMatch = await bcrypt.compare(passord, user.passord);
+        const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
             return res.json({
                 success: false,
@@ -77,7 +89,7 @@ export const login = async (req, res) => {
             })
         }
 
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRAT, { expireIn: "7d" });
+        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRAT, { expiresIn: "7d" });
 
         res.cookie("token", token, {
             httpOnly: true,
@@ -113,7 +125,7 @@ export const logout = async (req, res) => {
             success: true,
             message: "logged out"
         })
-        
+
     } catch (error) {
         res.json({
             success: false,
