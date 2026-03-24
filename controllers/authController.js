@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import userModel from "../models/user.model.js";
 import jwt from "jsonwebtoken";
 import transporter from "../config/nodeMailer.config.js";
+import { UAParser } from "ua-parser-js";
 
 // ekhane regiter login logout verifyAcout and passord reset esob kaj kora hoy controller er moddhe
 export const regiter = async (req, res) => {
@@ -204,7 +205,7 @@ export const verifyEmail = async (req, res) => {
                 message: "invalid otp"
             })
         }
-        if(user.verifyOtpExpireAt < Date.now()){
+        if (user.verifyOtpExpireAt < Date.now()) {
             return res.json({
                 success: false,
                 message: "otp expired"
@@ -229,9 +230,9 @@ export const verifyEmail = async (req, res) => {
 }
 
 // =================================== CHECK USER IS AUTHENTICATED =================================
-export const isAuthenticated = async(req, res) => {
+export const isAuthenticated = async (req, res) => {
     try {
-        return res.json({ success:true, message: "user authrized successfully"});
+        return res.json({ success: true, message: "user authrized successfully" });
     } catch (error) {
         return res.json({
             success: false,
@@ -242,52 +243,52 @@ export const isAuthenticated = async(req, res) => {
 
 // ===================================== SEND PASSWORD RESET OTP ===================================
 export const sendPassResetOtp = async (req, res) => {
-    
+
     try {
         // aproje 1 
-    //    const userId = req.userId;
-    //    const user = await userModel.findById(userId);
-       
-       
-       // aproje 2 
-       const { email } = req.body;
-
-       if(!email){
-        return res.json({ success:false, message: "email is required"});
-       }
-
-       const user = await userModel.findOne({ email });
-       if(!user){
-        return res.json({ success: false, message: "user not found"});
-       }
+        //    const userId = req.userId;
+        //    const user = await userModel.findById(userId);
 
 
-       const otp = String(Math.floor(100000 + Math.random() * 900000));
+        // aproje 2 
+        const { email } = req.body;
 
-       user.resetOtp = otp;
-       user.resetExpireAt = Date.now() + 5 * 60 * 1000;
-       
-       await user.save();
+        if (!email) {
+            return res.json({ success: false, message: "email is required" });
+        }
 
-      // send otp to user email
-      const mailOptions = {
-        from: process.env.SENDER_EMAIL,
-        to: user.email,
-        subject: `Reset otp is ${otp}`,
-        text: `
+        const user = await userModel.findOne({ email });
+        if (!user) {
+            return res.json({ success: false, message: "user not found" });
+        }
+
+
+        const otp = String(Math.floor(100000 + Math.random() * 900000));
+
+        user.resetOtp = otp;
+        user.resetExpireAt = Date.now() + 5 * 60 * 1000;
+
+        await user.save();
+
+        // send otp to user email
+        const mailOptions = {
+            from: process.env.SENDER_EMAIL,
+            to: user.email,
+            subject: `Reset otp is ${otp}`,
+            text: `
             <h1>Acount varification Otp</h1>
             <h3>Your verification code is: ${otp}</h3>
             <p>This code expires in 10 minutes. Do not share it with anyone.</p>
             – [From userAuth app]    
         `
-      }
-    //   send the email useing tranporter configaration
-    await transporter.sendMail(mailOptions);
-    
-    return res.json({
-        success: true,
-        message: "reset otp send successfully"
-    })
+        }
+        //   send the email useing tranporter configaration
+        await transporter.sendMail(mailOptions);
+
+        return res.json({
+            success: true,
+            message: "reset otp send successfully"
+        })
 
     } catch (error) {
         return res.json({
@@ -298,21 +299,21 @@ export const sendPassResetOtp = async (req, res) => {
 }
 
 // ===================================== verify reset password =====================================
-export const setResetPassword = async (req, res) =>{
+export const setResetPassword = async (req, res) => {
     const { email, otp, newPassword } = req.body;
-    if(!email || !otp || !newPassword){
-        return res.json({ success: false, message: "email otp or password is required"});
+    if (!email || !otp || !newPassword) {
+        return res.json({ success: false, message: "email otp or password is required" });
     }
     try {
         const user = await userModel.findOne({ email });
-        if(!user){
-            return res.json({ success: false, message: "user not found"})
+        if (!user) {
+            return res.json({ success: false, message: "user not found" })
         }
-        if(user.resetOtp === "" || user.resetOtp !== otp){
-            return res.json({ success: false, message: "invalid otp"});
+        if (user.resetOtp === "" || user.resetOtp !== otp) {
+            return res.json({ success: false, message: "invalid otp" });
         }
-        if(user.resetExpireAt < Date.now()){
-            return res.json({ success: false, message: "otp expired"});
+        if (user.resetExpireAt < Date.now()) {
+            return res.json({ success: false, message: "otp expired" });
         }
 
         const hashedNewPassword = await bcrypt.hash(newPassword, 10);
@@ -321,7 +322,39 @@ export const setResetPassword = async (req, res) =>{
         user.resetExpireAt = 0;
 
         await user.save();
-        return res.json({ success: true, message: "password reset successfully"});
+        // get user device information
+        const userAgent = new UAParser(req.headers["user-agent"]);
+        const result = userAgent.getResult();
+
+        const browserName = result.browser.name;
+        const OS_Name = result.os.name;
+        const deviceType = result.device.type || "desktop";
+        const userIP = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+
+
+        const mailOptions = {
+            from: process.env.SENDER_EMAIL,
+            to: user.email,
+            subject: "Your password has chenged",
+            text: `
+                Hello, <br/>
+                Your account password was recently changed. <br/>
+                
+                Details:<br/>
+                ---------------------------<br/>
+                Device: ${deviceType} (${OS_Name})<br/>
+                Browser: ${browserName}<br/>
+                IP Address: ${userIP}<br/>
+                Time: ${new Date().toLocaleString('en-US')}<br/>
+                ---------------------------<br/>
+                
+                If you did not make this change, please contact our support team immediately.
+            `
+        }
+
+        await transporter.sendMail(mailOptions);
+
+        return res.json({ success: true, message: "password reset successfully" });
 
     } catch (error) {
         return res.json({ success: false, message: error.message });
